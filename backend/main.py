@@ -27,9 +27,7 @@ load_dotenv()  # reads a local .env file if present; does nothing on Render, whi
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://safety-app-frontend.onrender.com",
-                   "http://localhost:3000",
-                   "http://127.0.0.1:3000"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
