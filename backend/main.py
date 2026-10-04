@@ -18,7 +18,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from pwdlib import PasswordHash
 from dotenv import load_dotenv
@@ -44,6 +44,8 @@ async def security_headers(request, call_next):
 
 password_hasher = PasswordHash.recommended()
 SECRET_KEY = os.environ.get("SECRET_KEY", "local-testing-only-not-for-real-use-1234567890")
+if os.environ.get("RENDER") and "SECRET_KEY" not in os.environ:
+    raise RuntimeError("SECRET_KEY must be set in production")
 DATA_DIR = os.environ.get("DATA_DIR", ".")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -767,8 +769,22 @@ AUDIO_TYPES = {
     ".mp3": "audio/mpeg",
 }
 
+AREA_SCAN_LIMIT = 20          # scans allowed per visitor
+AREA_SCAN_WINDOW = 3600       # per hour (seconds)
+AREA_SCAN_LOG = {}
+
+def check_area_scan_limit(request: Request):
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    now = time.time()
+    recent = [t for t in AREA_SCAN_LOG.get(ip, []) if now - t < AREA_SCAN_WINDOW]
+    if len(recent) >= AREA_SCAN_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many area scans, try again later")
+    recent.append(now)
+    AREA_SCAN_LOG[ip] = recent
 @app.get("/area-safety")
 def area_safety(
+    request: Request,
     lat: float = Query(..., ge=-90, le=90),
     lon: float = Query(..., ge=-180, le=180),
 ):
