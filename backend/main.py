@@ -595,13 +595,15 @@ def track(share_token: str, v: int | None = None):
         cur.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Tracking link is not active")
-        if v is not None:
-          cur.execute(
+    if v is not None:
+        cur.execute(
             "UPDATE alerts SET first_viewed_at = %s, "
-            "viewed_by = (SELECT name FROM contacts WHERE id = %s AND username = %s) "
+            "viewed_by = (SELECT c.name FROM contacts c "
+            "             WHERE c.id = %s AND c.username = alerts.username) "
             "WHERE share_token = %s AND first_viewed_at IS NULL "
-            "AND EXISTS (SELECT 1 FROM contacts WHERE id = %s AND username = %s)",
-            (datetime.now(timezone.utc).isoformat(), v, alert[0], share_token, v, alert[0]),
+            "AND EXISTS (SELECT 1 FROM contacts c "
+            "            WHERE c.id = %s AND c.username = alerts.username)",
+            (datetime.now(timezone.utc).isoformat(), v, share_token, v),
         )
         conn.commit()
     cur.execute(
