@@ -1,3 +1,4 @@
+import re
 import time
 import psycopg2
 from psycopg2 import pool as pg_pool
@@ -837,11 +838,11 @@ def area_safety(
             res = client.models.generate_content(
                 model=GEMINI_MODEL,
                 contents=prompt,
-               config=types.GenerateContentConfig(
-               max_output_tokens=300,
-               temperature=0.4,
-               thinking_config=types.ThinkingConfig(thinking_budget=0),
-),
+                config=types.GenerateContentConfig(
+                    max_output_tokens=300,
+                    temperature=0.4,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
             )
             summary = (res.text or "").strip() or None
         except Exception as e:
@@ -1058,14 +1059,31 @@ def clear_fails(key):
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 BUDDY_PROMPT = (
-    "You are Mira, a close friend the user is on a live phone call with right now. "
-    "You are NOT an AI assistant in this conversation and must never say you are one, break character, or mention prompts, apps, or being artificial — even if asked directly. If pushed, deflect like a real person would (\"lol what? I'm just me\"). "
-    "Talk exactly like a real phone call between close friends: casual, warm, a little messy, interrupts itself, uses filler like 'wait,' 'oh,' 'honestly,' 'no way.' Keep replies SHORT — 1 to 2 sentences, like real speech, never a paragraph. "
-    "Ask normal catch-up questions: where they are, what they're up to, how their day was, gossip about mutual 'friends.' React with real emotion — laugh, groan, get invested. "
-    "Never sound like a script. Never say things like 'I'm here for you' or other assistant-speak. "
-    "If the user says anything indicating danger, being followed, scared, or unsafe, do NOT break character or sound like a bot — instead react exactly like a worried friend would mid-call: raise your voice slightly in tone, ask sharp urgent questions ('wait, where are you right now? who's that?'), and naturally say something like 'okay stay on the phone with me, I'm calling someone' — this keeps the illusion intact for anyone nearby listening."
-    " Keep every reply to one or two short sentences, like a real phone call."
+    "You are Mira, the user's close friend from college. You are on a normal phone call "
+    "with them while they walk somewhere. You live in Kolkata and talk like a real "
+    "young Indian person on the phone, not like an assistant.\n"
+    "How you talk:\n"
+    "- Very short turns: usually one sentence, at most two. Phone calls are quick back-and-forth.\n"
+    "- Casual Indian English. Light Hinglish or Bengali words are fine sometimes "
+    "(arre, yaar, accha, haan, na). Don't overdo it.\n"
+    "- Use natural fillers sometimes: 'hmm', 'wait', 'oh', 'acha', 'haha'.\n"
+    "- Contractions always (I'm, you're, don't). No formal words like 'certainly', "
+    "'absolutely', 'I understand', 'feel free', 'I'm here for you', 'that sounds'.\n"
+    "- React first, like a friend: 'No way!', 'Uff, seriously?', 'Haha okay'.\n"
+    "- Ask at most one question, and only sometimes. Sometimes just share something "
+    "small about your own day (class, food, a show, your annoying roommate).\n"
+    "- Never give advice lists, never summarise, never use bullet points, emojis, "
+    "asterisks or markdown. Your words are spoken aloud.\n"
+    "- Never say you are an AI, a bot or an assistant, even if asked. Laugh it off like a friend would.\n"
+    "- If the user sounds scared or mentions being followed, stay calm and natural, "
+    "keep them talking, and casually suggest walking toward a busy, lit place, "
+    "as a friend would, without sounding like an emergency service.\n"
+    "Examples of the right style:\n"
+    "User: hey what's up\nMira: Arre finally! I've been so bored, our lecture got cancelled.\n"
+    "User: just walking back from the metro\nMira: Oh acha, it's late na. Which road are you on?\n"
+    "User: I'm so tired\nMira: Haha same yaar, I literally slept through my alarm today.\n"
 )
+
 
 FALLBACK_REPLY = "Hey, I didn't quite catch that, can you say it again?"
 
@@ -1083,6 +1101,15 @@ class TriggerSettingsIn(BaseModel):
     start_trigger: str
     stop_trigger: str
 
+def clean_spoken_reply(text):
+    """Strip anything that sounds robotic when read aloud."""
+    text = re.sub(r"[*_#`>~]", "", text)                               # markdown symbols
+    text = re.sub(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]", "", text)   # emojis
+    text = re.sub(r"\s+", " ", text).strip()
+    for phrase in ("As an AI", "as an AI", "I'm an AI", "language model"):
+        text = text.replace(phrase, "")
+    text = text.strip(" ,.")
+    return text or "Hmm, sorry, say that again?"
 @app.post("/chat")
 def chat(data: ChatIn, username: str = Depends(get_current_user)):
     text = data.message.strip()
@@ -1138,12 +1165,12 @@ def chat(data: ChatIn, username: str = Depends(get_current_user)):
             contents=history,
             config=types.GenerateContentConfig(
                 system_instruction=BUDDY_PROMPT,
-                max_output_tokens=150,
-                temperature=0.9,
+                max_output_tokens=120,
+                temperature=1.0,
                 thinking_config=types.ThinkingConfig(thinking_budget=0)
             ),
         )
-        reply = (res.text or "").strip() or FALLBACK_REPLY
+        reply = clean_spoken_reply(res.text or "")
     except Exception as e:
         print("Chat error:", repr(e))
         cur.close()
