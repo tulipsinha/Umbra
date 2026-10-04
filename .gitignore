@@ -1,0 +1,7 @@
+venv/
+safety.db
+recordings/
+__pycache__/
+env.sh
+.env
+.env.local
