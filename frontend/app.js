@@ -2092,6 +2092,76 @@ function toggleVoiceGuardian() {
   }
 }
 
+// ---------- Safe-word matching (forgiving) ----------
+// Speech recognition rarely writes your words exactly the way you typed
+// them: it adds punctuation, capitals, "u" for "you", splits or joins words.
+// These helpers clean both sides before comparing, and for phrases of
+// 4+ words allow one word to be misheard.
+
+const SAFE_WORD_FIXES = {
+  u: "you", ya: "you", r: "are", ur: "your",
+  gonna: "going to", wanna: "want to", ok: "okay", k: "okay",
+  "0": "zero", "1": "one", "2": "two", "3": "three", "4": "four",
+  "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine", "10": "ten",
+};
+
+function normalizeSpeech(text) {
+  return (text || "")
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => SAFE_WORD_FIXES[w] || w)
+    .join(" ");
+}
+
+function speechWordsMatch(a, b) {
+  if (a === b) return true;
+  if (a.length >= 4 && b.length >= 4) {
+    // allow one letter different: cat/cats, feed/fed
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let i = 0, j = 0, diffs = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { i++; j++; continue; }
+      diffs++;
+      if (diffs > 1) return false;
+      if (a.length > b.length) i++;
+      else if (b.length > a.length) j++;
+      else { i++; j++; }
+    }
+    return diffs + (a.length - i) + (b.length - j) <= 1;
+  }
+  return false;
+}
+
+function safeWordHeard(transcript, phrase) {
+  const t = normalizeSpeech(transcript);
+  const p = normalizeSpeech(phrase);
+  if (!t || !p) return false;
+
+  // 1. Exact match after cleaning
+  if (t.includes(p)) return true;
+
+  // 2. Same words but split/joined differently ("pine apple" vs "pineapple")
+  if (t.replace(/ /g, "").includes(p.replace(/ /g, ""))) return true;
+
+  // 3. Long phrases: allow one word to be missed or misheard
+  const pw = p.split(" ");
+  const tw = t.split(" ");
+  if (pw.length < 4) return false;
+  for (let start = 0; start < tw.length; start++) {
+    const win = tw.slice(start, start + pw.length + 2);
+    let k = 0, hits = 0;
+    for (const w of win) {
+      if (k < pw.length && speechWordsMatch(w, pw[k])) { hits++; k++; }
+      else if (k + 1 < pw.length && speechWordsMatch(w, pw[k + 1])) { hits++; k += 2; }
+    }
+    if (hits >= pw.length - 1) return true;
+  }
+  return false;
+}
+
 function startListeningEngine() {
 
   const SpeechRecognition =
@@ -2105,7 +2175,7 @@ function startListeningEngine() {
 
   recognizer.continuous = true;
   recognizer.interimResults = true;
-  recognizer.lang = "en-US";
+  recognizer.lang = "en-IN";
 
   recognizer.onresult =
     (event) => {
@@ -2133,9 +2203,7 @@ function startListeningEngine() {
           state.stopTrigger.toLowerCase();
 
         if (
-          transcript.includes(
-            startPhrase
-          )
+                    safeWordHeard(transcript, startPhrase)
         ) {
 
           console.warn(
@@ -2151,9 +2219,7 @@ function startListeningEngine() {
           startAlert();
 
         } else if (
-          transcript.includes(
-            stopPhrase
-          )
+                    safeWordHeard(transcript, stopPhrase)
         ) {
 
           console.log(
