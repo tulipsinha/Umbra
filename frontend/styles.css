@@ -640,6 +640,25 @@ h4,
   margin: 0 0 12px;
 }
 
+#screen-walk .section-header {
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.walk-back-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+#walk-dash-card.walk-live {
+  border-color: var(--accent-safe, #22c55e);
+}
+
+#walk-dash-card.walk-live #walk-card-status {
+  color: var(--accent-safe, #22c55e);
+  font-weight: 600;
+}
+
 .feature-card-heading {
   display: flex;
   align-items: flex-start;

@@ -298,7 +298,23 @@ function formatWalkTime(seconds) {
   return `${minutes}:${remainder}`;
 }
 
+function updateWalkTile(walk) {
+  const tile = document.getElementById("walk-dash-card");
+  const status = document.getElementById("walk-card-status");
+  if (!tile || !status) return;
+
+  const live = walk && walk.status === "active";
+  tile.classList.toggle("walk-live", !!live);
+  status.textContent = live
+    ? `Active · check in ${formatWalkTime(walk.seconds_left)}`
+    : walk && walk.status === "alerted"
+      ? "Check-in missed · contacts alerted"
+      : "Timed check-ins for your trip";
+}
+
 function updateWalkUI(walk) {
+  updateWalkTile(walk);
+
   const panel = document.getElementById("walk-status-panel");
   const title = document.getElementById("walk-status-title");
   const message = document.getElementById("walk-status-message");
@@ -501,6 +517,20 @@ async function toggleAlert() {
   }
 }
 
+// The deployed site serves track.html next to index.html (not under /frontend),
+// and links built on localhost can't be opened on a contact's phone.
+const PUBLIC_APP_URL = "https://umbra-roqr.onrender.com/";
+
+function buildTrackUrl(shareToken) {
+  const isLocal =
+    window.location.protocol === "file:" ||
+    /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/.test(window.location.hostname);
+  const base = isLocal ? PUBLIC_APP_URL : window.location.href;
+  const url = new URL("track.html", base);
+  url.searchParams.set("token", shareToken);
+  return url.toString();
+}
+
 async function startAlert() {
   if (state.isAlertActive) return;
 
@@ -526,7 +556,7 @@ async function startAlert() {
     updateAlertUI(true);
 
     const trackUrl =
-      `${window.location.origin}/frontend/track.html?token=${res.share_token}`;
+      buildTrackUrl(res.share_token);
 
     document.getElementById(
       "share-link-input"
@@ -1854,7 +1884,7 @@ async function loadRecordingAudio(button) {
       );
 
       showToast(
-        "Recording loaded. Press â–¶ on the audio player to hear it.",
+        "Recording loaded. Press ▶ on the audio player to hear it.",
         "info"
       );
     }
@@ -3675,7 +3705,7 @@ async function loadContacts() {
             onclick="deleteContact(${c.id})"
             title="Delete contact"
           >
-            âœ•
+            ✕
           </button>
 
         </div>
@@ -4825,7 +4855,7 @@ async function loadRecordings(
               onclick="loadRecordingAudio(this)"
               style="padding:6px 10px;"
             >
-              â–¶ Play
+              ▶ Play
             </button>
 
           </div>
