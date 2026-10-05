@@ -2618,38 +2618,17 @@ async function sendChatMessage(e) {
       res.reply
     );
 
-    const banner =
-      document.getElementById(
-        "chat-emergency-banner"
-      );
-
     if (
-      res.emergency ||
-      res.trigger_start
+      res.trigger_start &&
+      !state.isAlertActive
     ) {
 
-      banner.classList.add(
-        "visible"
+      showToast(
+        "Secret safe-word detected in chat! Alert started.",
+        "error"
       );
 
-      if (
-        res.trigger_start &&
-        !state.isAlertActive
-      ) {
-
-        showToast(
-          "Secret safe-word detected in chat! Alert started.",
-          "error"
-        );
-
-        startAlert();
-      }
-
-    } else {
-
-      banner.classList.remove(
-        "visible"
-      );
+      startAlert();
     }
 
     if (
@@ -3395,24 +3374,10 @@ async function handleMiraSpokenTurn(
     );
 
     if (
-      res.emergency ||
-      res.trigger_start
+      res.trigger_start &&
+      !state.isAlertActive
     ) {
-
-      document
-        .getElementById(
-          "chat-emergency-banner"
-        )
-        ?.classList.add(
-          "visible"
-        );
-
-      if (
-        res.trigger_start &&
-        !state.isAlertActive
-      ) {
-        startAlert();
-      }
+      startAlert();
     }
 
     if (

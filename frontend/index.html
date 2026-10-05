@@ -255,10 +255,17 @@
               <span class="mira-avatar-icon" aria-hidden="true">👩</span> Mira Companion
             </span>
 
-            <button type="button" class="call-mode-btn" id="btn-toggle-call-mode" onclick="toggleMiraVoiceCall()">
-              <span id="call-btn-icon">📞</span>
-              <span id="call-btn-text">Start Phone Call</span>
-            </button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button type="button" onclick="clearChatHistory()" class="btn-secondary"
+                style="padding: 6px 12px; border-radius: 9999px; font-size: 12px; white-space: nowrap;">
+                🗑️ Clear chat
+              </button>
+
+              <button type="button" class="call-mode-btn" id="btn-toggle-call-mode" onclick="toggleMiraVoiceCall()">
+                <span id="call-btn-icon">📞</span>
+                <span id="call-btn-text">Start Phone Call</span>
+              </button>
+            </div>
           </div>
 
           <!-- Active Phone Call Overlay -->
@@ -282,32 +289,6 @@
               <button type="button" class="call-112-btn" style="padding: 8px 18px;" onclick="toggleMiraVoiceCall()">
                 ✕ End Call
               </button>
-            </div>
-          </div>
-
-          <!-- Disclaimer -->
-          <div class="chat-disclaimer">
-            <span>🛡️ Mira is your AI safety companion for walking alone. In immediate danger, call 112.</span>
-
-            <button type="button" onclick="clearChatHistory()" class="btn-secondary"
-              style="padding: 6px 12px; border-radius: 9999px; font-size: 12px; white-space: nowrap;">
-              🗑️ Clear chat
-            </button>
-          </div>
-
-          <!-- Emergency Banner inside Chat -->
-          <div id="chat-emergency-banner" class="chat-emergency-banner">
-            <span>🚨 Danger words detected!</span>
-
-            <div style="display: flex; gap: 6px;">
-              <button type="button" class="btn-secondary" style="padding: 4px 8px; font-size: 11px;"
-                onclick="toggleAlert()">
-                Start Alert
-              </button>
-
-              <a href="tel:112" class="call-112-btn" style="padding: 4px 8px; font-size: 11px;">
-                112
-              </a>
             </div>
           </div>
 
