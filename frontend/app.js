@@ -1,5 +1,5 @@
 /**
- * Mira â€” Frontend Client Application
+ * Mira — Frontend Client Application
  * Clean Vanilla JS Architecture connected to FastAPI backend
  */
 
@@ -22,6 +22,7 @@ const state = {
   alertStartTime: null,
   alertTimerInterval: null,
   locationInterval: null,
+  walkDestination: "",
 
   // Audio recording state
   audioMediaRecorder: null,
@@ -121,10 +122,10 @@ function showToast(message, type = "info") {
 
   const icon =
     type === "error"
-      ? "âš ï¸"
+      ? "⚠️"
       : type === "success"
-        ? "âœ…"
-        : "â„¹ï¸";
+        ? "✅"
+        : "ℹ️";
 
   toast.innerHTML =
     `<span>${icon}</span><span>${escapeHtml(message)}</span>`;
@@ -280,12 +281,115 @@ function onLoginSuccess() {
   loadTriggers();
   loadContacts();
 
+  if (typeof startWalkPolling === "function") {
+    startWalkPolling(() => state.token, updateWalkUI);
+  }
+  if (typeof startAlertWatch === "function") {
+    startAlertWatch(() => state.token);
+  }
+
   navigateTo("home");
+}
+
+function formatWalkTime(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = String(safeSeconds % 60).padStart(2, "0");
+  return `${minutes}:${remainder}`;
+}
+
+function updateWalkUI(walk) {
+  const panel = document.getElementById("walk-status-panel");
+  const title = document.getElementById("walk-status-title");
+  const message = document.getElementById("walk-status-message");
+  const actions = document.getElementById("walk-actions");
+  if (!panel || !title || !message || !actions) return;
+
+  if (!walk || walk.status === "none") {
+    panel.hidden = true;
+    actions.hidden = true;
+    state.walkDestination = "";
+    return;
+  }
+
+  state.walkDestination = walk.destination || state.walkDestination;
+  panel.hidden = false;
+  actions.hidden = walk.status !== "active";
+
+  if (walk.status === "active") {
+    title.textContent = "Your walk is being monitored";
+    message.textContent =
+      `Check in at ${state.walkDestination} in ${formatWalkTime(walk.seconds_left)}.`;
+  } else if (walk.status === "arrived") {
+    title.textContent = "Arrival confirmed";
+    message.textContent = state.walkDestination
+      ? `Glad you made it safely to ${state.walkDestination}.`
+      : "Glad you made it safely.";
+  } else if (walk.status === "alerted") {
+    title.textContent = "Check-in time passed";
+    message.textContent =
+      `Your expected arrival at ${state.walkDestination || "your destination"} has passed. Emergency contacts have been alerted.`;
+  } else {
+    panel.hidden = true;
+    actions.hidden = true;
+  }
+}
+
+async function startWalkFromDashboard(event) {
+  event.preventDefault();
+
+  const form = document.getElementById("walk-form");
+  const submitButton = document.getElementById("walk-start-btn");
+  const destination = document.getElementById("walk-destination").value;
+  const minutes = document.getElementById("walk-minutes").value;
+  if (!form || !submitButton) return;
+
+  submitButton.disabled = true;
+  try {
+    await startWalk(
+      () => state.token,
+      destination,
+      minutes,
+      updateWalkUI
+    );
+    showToast("Walk With Me is active. Check in when you arrive.", "success");
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+async function markWalkArrived() {
+  try {
+    await walkArrived(() => state.token);
+    updateWalkUI({ status: "arrived", destination: state.walkDestination });
+    showToast("Arrival confirmed. Glad you made it safely.", "success");
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+async function extendWalkTimer() {
+  try {
+    await walkExtend(() => state.token, 10);
+    showToast("Your check-in timer was extended by 10 minutes.", "success");
+    startWalkPolling(() => state.token, updateWalkUI);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
 }
 
 function showLoginScreen() {
   state.token = null;
   state.username = null;
+
+  if (typeof stopWalkPolling === "function") {
+    stopWalkPolling();
+  }
+  if (typeof stopAlertWatch === "function") {
+    stopAlertWatch();
+  }
 
   localStorage.removeItem("mira_token");
   localStorage.removeItem("mira_user");
@@ -301,6 +405,13 @@ function showLoginScreen() {
 function handleLogout() {
   state.token = null;
   state.username = null;
+
+  if (typeof stopWalkPolling === "function") {
+    stopWalkPolling();
+  }
+  if (typeof stopAlertWatch === "function") {
+    stopAlertWatch();
+  }
 
   localStorage.removeItem("mira_token");
   localStorage.removeItem("mira_user");
@@ -395,7 +506,7 @@ async function startAlert() {
 
   try {
     showToast(
-      "ðŸš¨ Initiating Emergency Alert...",
+      "🚨 Initiating Emergency Alert...",
       "error"
     );
 
@@ -571,7 +682,7 @@ function updateAlertUI(isActive) {
     if (audioTimer) {
       audioTimer.style.display = "block";
       audioTimer.textContent =
-        "ðŸŽ™ï¸ Starting microphoneâ€¦";
+        "🎙️ Starting microphone…";
     }
 
     if (btnLabel) {
@@ -583,17 +694,17 @@ function updateAlertUI(isActive) {
     }
 
     if (btnIcon) {
-      btnIcon.textContent = "â¹ï¸";
+      btnIcon.textContent = "⏹️";
     }
 
     if (statusTitle) {
       statusTitle.textContent =
-        "ðŸš¨ EMERGENCY BEACON ACTIVE";
+        "🚨 EMERGENCY BEACON ACTIVE";
     }
 
     if (statusSub) {
       statusSub.textContent =
-        "Contacts alerted â€¢ Live GPS & Audio evidence";
+        "Contacts alerted • Live GPS & Audio evidence";
     }
 
   } else {
@@ -619,7 +730,7 @@ function updateAlertUI(isActive) {
     }
 
     if (btnIcon) {
-      btnIcon.textContent = "ðŸš¨";
+      btnIcon.textContent = "🚨";
     }
 
     if (statusTitle) {
@@ -701,7 +812,7 @@ function sendCurrentLocation() {
 
       if (statusPill) {
         statusPill.textContent =
-          `GPS: Â±${Math.round(pos.coords.accuracy)}m`;
+          `GPS: ±${Math.round(pos.coords.accuracy)}m`;
       }
 
       try {
@@ -747,7 +858,7 @@ function sendCurrentLocation() {
 }
 
 // ============================================================================
-// AUDIO RECORDING â€” REAL 10 SECOND ROLLING CLIPS
+// AUDIO RECORDING — REAL 10 SECOND ROLLING CLIPS
 // ============================================================================
 
 const AUDIO_CHUNK_MS = 10000;
@@ -831,8 +942,8 @@ function updateAudioChunkTimer() {
   if (!state.audioChunkStartedAt) {
     timer.textContent =
       state.audioCaptureStatus === "recording"
-        ? "ðŸŽ™ï¸ Mic LIVE"
-        : "ðŸŽ™ï¸ Microphone inactive";
+        ? "🎙️ Mic LIVE"
+        : "🎙️ Microphone inactive";
     return;
   }
 
@@ -852,7 +963,7 @@ function updateAudioChunkTimer() {
     );
 
   timer.textContent =
-    `ðŸŽ™ï¸ Recording clip â€¢ ${sec}s`;
+    `🎙️ Recording clip • ${sec}s`;
 }
 
 // --------------------------------------------------------------------------
@@ -966,10 +1077,10 @@ function startAudioLevelMonitor() {
 
         if (rms > 0.015) {
           timer.textContent =
-            `ðŸŽ™ï¸ Mic LIVE â€¢ Sound detected â€¢ ${sec}s`;
+            `🎙️ Mic LIVE • Sound detected • ${sec}s`;
         } else {
           timer.textContent =
-            `ðŸŽ™ï¸ Mic LIVE â€¢ Quiet â€¢ ${sec}s`;
+            `🎙️ Mic LIVE • Quiet • ${sec}s`;
         }
 
       }, 250);
@@ -1104,11 +1215,11 @@ async function startAudioRecordingLoop() {
     if (audioTimer) {
       audioTimer.style.display = "block";
       audioTimer.textContent =
-        "ðŸŽ™ï¸ Mic LIVE â€¢ preparing clipâ€¦";
+        "🎙️ Mic LIVE • preparing clip…";
     }
 
     showToast(
-      "ðŸŽ™ï¸ Microphone connected. Audio evidence recording is ON.",
+      "🎙️ Microphone connected. Audio evidence recording is ON.",
       "success"
     );
 
@@ -1283,7 +1394,7 @@ function recordSingleAudioSlice() {
 
         if (timer && state.isAlertActive) {
           timer.textContent =
-            "âš ï¸ Audio recorder error";
+            "⚠️ Audio recorder error";
         }
       };
 
@@ -1580,7 +1691,7 @@ async function stopAudioRecordingLoop(
 
   if (timer) {
     timer.textContent =
-      "ðŸŽ™ï¸ Audio recording stopped";
+      "🎙️ Audio recording stopped";
   }
 }
 
@@ -1638,7 +1749,7 @@ async function loadRecordingAudio(button) {
 
   button.disabled = true;
   button.textContent =
-    "Loadingâ€¦";
+    "Loading…";
 
   try {
 
@@ -1774,7 +1885,7 @@ function formatDuration(seconds) {
     !Number.isFinite(seconds) ||
     seconds < 0
   ) {
-    return "â€”";
+    return "—";
   }
 
   const rounded =
@@ -2028,7 +2139,7 @@ function startListeningEngine() {
         ) {
 
           console.warn(
-            "ðŸš¨ VOICE GUARDIAN DETECTED START TRIGGER:",
+            "🚨 VOICE GUARDIAN DETECTED START TRIGGER:",
             startPhrase
           );
 
@@ -2228,7 +2339,7 @@ function appendChatMessage(
           class="bubble-listen-btn"
           title="Listen to Mira"
           onclick="playMiraAudio(this)"
-        >ðŸ”Š</button>
+        >🔊</button>
       </div>
       <span class="chat-bubble-time">${time}</span>
     `;
@@ -2278,7 +2389,7 @@ function playMiraAudio(btn) {
       "speaking"
     );
 
-    btn.textContent = "ðŸ”Š";
+    btn.textContent = "🔊";
 
     return;
   }
@@ -2293,14 +2404,14 @@ function playMiraAudio(btn) {
         "speaking"
       );
 
-      b.textContent = "ðŸ”Š";
+      b.textContent = "🔊";
     });
 
   btn.classList.add(
     "speaking"
   );
 
-  btn.textContent = "â¹ï¸";
+  btn.textContent = "⏹️";
 
   speakText(
     text,
@@ -2310,7 +2421,7 @@ function playMiraAudio(btn) {
         "speaking"
       );
 
-      btn.textContent = "ðŸ”Š";
+      btn.textContent = "🔊";
     }
   );
 }
@@ -2816,7 +2927,7 @@ function muteCallMic() {
 
     if (btn) {
       btn.textContent =
-        "ðŸ”‡ Mic MUTED";
+        "🔇 Mic MUTED";
 
       btn.style.color =
         "var(--accent-emergency)";
@@ -2826,7 +2937,7 @@ function muteCallMic() {
 
     if (btn) {
       btn.textContent =
-        "ðŸŽ¤ Mic ON";
+        "🎤 Mic ON";
 
       btn.style.color =
         "";
@@ -2980,7 +3091,7 @@ function startCallListening() {
 
   if (sub) {
     sub.textContent =
-      "Speak naturally â€” Mira is listening";
+      "Speak naturally — Mira is listening";
   }
 
   stopCallListening();
@@ -3366,7 +3477,7 @@ function toggleChatSpeechInput() {
   );
 
   showToast(
-    "ðŸŽ¤ Listening... Speak your message now",
+    "🎤 Listening... Speak your message now",
     "info"
   );
 
@@ -3502,8 +3613,8 @@ async function loadContacts() {
           <h4>${escapeHtml(c.name)}</h4>
 
           <div class="contact-meta">
-            <span>ðŸ“ž ${escapeHtml(c.phone)}</span>
-            <span>âœ‰ï¸ ${escapeHtml(c.email || "No email")}</span>
+            <span>📞 ${escapeHtml(c.phone)}</span>
+            <span>✉️ ${escapeHtml(c.email || "No email")}</span>
           </div>
         </div>
 
@@ -3684,7 +3795,7 @@ function initNearbyLeafletMap(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       {
         attribution:
-          "Â© OpenStreetMap",
+          "© OpenStreetMap",
         maxZoom: 19
       }
     ).addTo(
@@ -3896,7 +4007,7 @@ async function loadAreaSafety(
       "Well-Monitored & Active";
 
     let icon =
-      "ðŸ›¡ï¸";
+      "🛡️";
 
     if (
       (police && police <= 400) ||
@@ -3910,7 +4021,7 @@ async function loadAreaSafety(
         "High Security & Active Zone";
 
       icon =
-        "ðŸŸ¢";
+        "🟢";
 
     } else if (
       main >= 2 ||
@@ -3925,7 +4036,7 @@ async function loadAreaSafety(
         "Moderate Activity Area";
 
       icon =
-        "ðŸŸ¡";
+        "🟡";
 
     } else {
 
@@ -3936,7 +4047,7 @@ async function loadAreaSafety(
         "Low Infrastructure / Quiet Area";
 
       icon =
-        "ðŸŸ ";
+        "🟠";
     }
 
     if (title) {
@@ -3946,7 +4057,7 @@ async function loadAreaSafety(
 
     if (status) {
       status.textContent =
-        `${main} main roads nearby â€¢ ${biz} open places â€¢ Police: ${police != null ? police + "m" : "not found <1km"}`;
+        `${main} main roads nearby • ${biz} open places • Police: ${police != null ? police + "m" : "not found <1km"}`;
     }
 
     if (summaryText) {
@@ -3989,7 +4100,7 @@ async function loadAreaSafety(
             target="_blank"
             rel="noopener"
           >
-            ðŸš“ Route to Police (${police}m)
+            🚑 Route to Police (${police}m)
           </a>`;
       }
 
@@ -4002,7 +4113,7 @@ async function loadAreaSafety(
             target="_blank"
             rel="noopener"
           >
-            ðŸ¥ Route to Hospital (${hosp}m)
+            🏥 Route to Hospital (${hosp}m)
           </a>`;
       }
 
@@ -4014,7 +4125,7 @@ async function loadAreaSafety(
           rel="noopener"
           style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.4);"
         >
-          ðŸ’Š Route to Pharmacy
+          💊 Route to Pharmacy
         </a>`;
     }
 
@@ -4078,7 +4189,7 @@ async function loadAreaSafety(
           target="_blank"
           rel="noopener"
         >
-          ðŸš“ Nearest Police Station
+          🚑 Nearest Police Station
         </a>
 
         <a
@@ -4087,7 +4198,7 @@ async function loadAreaSafety(
           target="_blank"
           rel="noopener"
         >
-          ðŸ¥ Nearest Hospital
+          🏥 Nearest Hospital
         </a>`;
     }
   }
@@ -4348,11 +4459,11 @@ async function loadNearby(
 
               <div class="place-meta">
                 <span>
-                  ðŸ“ ${distKm} km away
+                  📌 ${distKm} km away
                 </span>
 
                 ${p.phone
-                    ? `<span>ðŸ“ž ${escapeHtml(p.phone)}</span>`
+                    ? `<span>📞 ${escapeHtml(p.phone)}</span>`
                     : ""
                   }
               </div>
@@ -4383,7 +4494,7 @@ async function loadNearby(
             .join("");
 
         list.innerHTML +=
-          `<p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 14px;">Â© OpenStreetMap contributors</p>`;
+          `<p style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 14px;">© OpenStreetMap contributors</p>`;
 
       } catch (err) {
 
@@ -4414,7 +4525,7 @@ async function loadNearby(
               class="btn-primary"
               style="text-decoration:none; display:inline-flex; width:auto; padding: 10px 20px;"
             >
-              ðŸ—ºï¸ Open ${placeType.charAt(0).toUpperCase() + placeType.slice(1)}s on Google Maps
+              🗺️ Open ${placeType.charAt(0).toUpperCase() + placeType.slice(1)}s on Google Maps
             </a>
 
           </div>`;
@@ -4450,12 +4561,12 @@ async function loadRecordings(
   if (showRefreshState) {
 
     list.innerHTML =
-      `<div style="text-align:center;color:var(--text-muted);padding:14px;">Saving and loading audio evidenceâ€¦</div>`;
+      `<div style="text-align:center;color:var(--text-muted);padding:14px;">Saving and loading audio evidence…</div>`;
 
   } else {
 
     list.innerHTML =
-      `<div style="text-align:center;color:var(--text-muted);padding:14px;">Loading recordingsâ€¦</div>`;
+      `<div style="text-align:center;color:var(--text-muted);padding:14px;">Loading recordings…</div>`;
   }
 
   try {
@@ -4488,7 +4599,7 @@ async function loadRecordings(
         >
           <div>
             <div style="font-size:13px;font-weight:700;color:var(--text-primary);">
-              ðŸŽ§ Audio Evidence
+              🎧 Audio Evidence
             </div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
               No saved recordings
@@ -4547,7 +4658,7 @@ async function loadRecordings(
               color:var(--text-primary);
             "
           >
-            ðŸŽ§ ${sortedFiles.length} Audio Evidence Clip${sortedFiles.length === 1 ? "" : "s"}
+            🎧 ${sortedFiles.length} Audio Evidence Clip${sortedFiles.length === 1 ? "" : "s"}
           </div>
 
           <div
@@ -4572,7 +4683,7 @@ async function loadRecordings(
             white-space:nowrap;
           "
         >
-          ðŸ—‘ï¸ Clear All
+          🗑️ Clear All
         </button>
 
       </div>
@@ -4642,7 +4753,7 @@ async function loadRecordings(
               margin-bottom:8px;
             "
           >
-            ðŸŽ™ï¸ Emergency evidence recording
+            🎙️ Emergency evidence recording
           </div>
 
           <div
@@ -4662,7 +4773,7 @@ async function loadRecordings(
                 color:var(--text-muted);
               "
             >
-              Target: 00:10 â€¢ Actual: checkingâ€¦
+              Target: 00:10 • Actual: checking…
             </span>
 
             <button
@@ -4690,7 +4801,7 @@ async function loadRecordings(
               const label = this.closest('.audio-recording-card').querySelector('.audio-duration-label');
               if (label) {
                 label.textContent =
-                  'Target: 00:10 â€¢ Actual: ' +
+                  'Target: 00:10 • Actual: ' +
                   formatDuration(this.duration);
               }
             "
@@ -4698,7 +4809,7 @@ async function loadRecordings(
               const label = this.closest('.audio-recording-card').querySelector('.audio-duration-label');
               if (label) {
                 label.textContent =
-                  'Target: 00:10 â€¢ Could not decode audio';
+                  'Target: 00:10 • Could not decode audio';
               }
             "
           ></audio>

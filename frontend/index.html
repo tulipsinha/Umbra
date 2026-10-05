@@ -148,6 +148,55 @@
             </button>
           </div>
 
+          <section class="walk-safety-card" aria-labelledby="walk-card-title">
+            <div class="feature-card-heading">
+              <div class="feature-card-icon" aria-hidden="true">🚶</div>
+              <div>
+                <h3 id="walk-card-title">Walk With Me</h3>
+                <p>Set a destination and check-in time. We’ll alert your contacts if you don’t check in.</p>
+              </div>
+            </div>
+
+            <form id="walk-form" class="walk-form" onsubmit="startWalkFromDashboard(event)">
+              <label class="sr-only" for="walk-destination">Destination</label>
+              <input id="walk-destination" class="input-field" type="text" maxlength="100"
+                placeholder="Where are you going?" autocomplete="off" required>
+
+              <div class="walk-form-row">
+                <div class="walk-duration-field">
+                  <label for="walk-minutes">Check in after</label>
+                  <div class="walk-input-suffix">
+                    <input id="walk-minutes" class="input-field" type="number" min="1" max="180" value="20" required>
+                    <span>min</span>
+                  </div>
+                </div>
+                <button id="walk-start-btn" class="btn-primary walk-start-btn" type="submit">Start safe walk</button>
+              </div>
+            </form>
+
+            <div id="walk-status-panel" class="walk-status-panel" role="status" aria-live="polite" hidden>
+              <div class="walk-status-copy">
+                <strong id="walk-status-title"></strong>
+                <span id="walk-status-message"></span>
+              </div>
+              <div id="walk-actions" class="walk-actions" hidden>
+                <button type="button" class="btn-secondary" onclick="extendWalkTimer()">+10 min</button>
+                <button type="button" class="btn-secondary" onclick="markWalkArrived()">I’ve arrived</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="help-status-card" aria-labelledby="help-status-heading">
+            <div class="feature-card-icon help-status-icon" aria-hidden="true">🛟</div>
+            <div class="help-status-copy">
+              <h3 id="help-status-heading">Help Is on the Way</h3>
+              <p id="help-status-message" role="status" aria-live="polite">
+                Start an SOS alert to share your live location and see when a contact opens the link.
+              </p>
+            </div>
+            <span id="help-status-dot" class="help-status-dot" aria-hidden="true"></span>
+          </section>
+
           <!-- Live Tracking Link Banner (Shown when alert is running) -->
           <div id="active-link-card" class="active-link-card">
             <div class="active-link-header">

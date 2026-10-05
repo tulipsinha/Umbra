@@ -1,6 +1,32 @@
 let alertWatchTimer = null;
 let alertWatchLastViewed = false;
 
+function renderHelpStatus(data) {
+  const card = document.querySelector(".help-status-card");
+  const message = document.getElementById("help-status-message");
+  if (!card || !message) return;
+
+  card.classList.remove("active", "help-confirmed");
+
+  if (!data || !data.active) {
+    message.textContent =
+      "Start an SOS alert to share your live location and see when a contact opens the link.";
+    alertWatchLastViewed = false;
+    return;
+  }
+
+  card.classList.add("active");
+
+  if (data.viewed) {
+    card.classList.add("help-confirmed");
+    const name = data.viewed_by || "An emergency contact";
+    message.textContent = `${name} opened your live tracking link. Help is on the way.`;
+  } else {
+    message.textContent =
+      "Your SOS alert is active. Waiting for a trusted contact to open your live tracking link.";
+  }
+}
+
 function startAlertWatch(getToken) {
   if (typeof getToken !== "function") return;
 
@@ -27,11 +53,12 @@ function startAlertWatch(getToken) {
       }
 
       const data = await response.json();
-      if (!data || !data.viewed) return;
+      renderHelpStatus(data);
+      if (!data || !data.active || !data.viewed) return;
 
       if (!alertWatchLastViewed && typeof speakAsMira === "function") {
-        const name = data.viewed_by || "someone";
-        speakAsMira(`Oh wait, ${name} just messaged me. They're on their way to you, okay?`);
+        const name = data.viewed_by || "An emergency contact";
+        speakAsMira(`Good news, ${name} has opened your live location link. Help is on the way.`);
       }
 
       alertWatchLastViewed = true;

@@ -42,6 +42,9 @@ function startWalkPolling(getToken, onUpdate) {
         onUpdate({ status: "alerted", destination: data.destination, seconds_left: 0 });
         if (typeof startAlertWatch === "function") startAlertWatch(getToken);
         stopWalkPolling();
+      } else {
+        onUpdate({ status: "none" });
+        stopWalkPolling();
       }
     } catch (error) {
       console.warn("Walk status check failed:", error);
