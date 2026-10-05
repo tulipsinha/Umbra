@@ -2654,6 +2654,10 @@ function browserSupportsMiraCall() {
 
 function getMiraVoice() {
 
+  if (typeof pickMiraVoice === "function") {
+    return pickMiraVoice();
+  }
+
   const voices =
     window.speechSynthesis
       ?.getVoices?.() || [];
@@ -2972,10 +2976,10 @@ function speakText(
     );
 
   utterance.rate =
-    0.98;
+    0.94;
 
   utterance.pitch =
-    1.05;
+    1.1;
 
   utterance.volume =
     1;

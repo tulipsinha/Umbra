@@ -6,20 +6,29 @@ function pickMiraVoice() {
   }
 
   const voices = window.speechSynthesis.getVoices();
-  const preferred = [
-    (v) => v.lang === "en-IN" && /female|google/i.test(v.name),
-    (v) => v.lang === "en-IN",
-    (v) => /Google UK English Female/i.test(v.name),
-    (v) => /Samantha|Karen|Moira|Veena/i.test(v.name),
-    (v) => v.lang.startsWith("en")
+  const preferredNames = [
+    /Microsoft Jenny/i,
+    /Microsoft Aria/i,
+    /Microsoft Ava/i,
+    /Microsoft Sonia/i,
+    /Microsoft Libby/i,
+    /Google UK English Female/i,
+    /Samantha|Karen|Moira|Veena|Zira/i,
+    /Jenny|Aria|Ava|Sonia|Libby/i
   ];
 
-  for (const test of preferred) {
-    const match = voices.find(test);
+  for (const name of preferredNames) {
+    const match = voices.find((voice) =>
+      name.test(voice.name) && /^en[-_]/i.test(voice.lang)
+    );
     if (match) return match;
   }
 
-  return null;
+  return (
+    voices.find((voice) => /^en-IN/i.test(voice.lang)) ||
+    voices.find((voice) => /^en[-_]/i.test(voice.lang)) ||
+    null
+  );
 }
 
 if ("speechSynthesis" in window) {
@@ -38,6 +47,7 @@ function speakAsMira(text, onDone) {
   window.speechSynthesis.cancel();
 
   const parts = String(text).match(/[^.!?]+[.!?]*/g) || [String(text)];
+  miraVoice = pickMiraVoice();
 
   parts.forEach((part, index) => {
     const utterance = new SpeechSynthesisUtterance(part.trim());
@@ -47,8 +57,8 @@ function speakAsMira(text, onDone) {
       utterance.lang = miraVoice.lang;
     }
 
-    utterance.rate = 1.05 + Math.random() * 0.12;
-    utterance.pitch = 1.05;
+    utterance.rate = 0.94;
+    utterance.pitch = 1.1;
 
     if (index === parts.length - 1 && typeof onDone === "function") {
       utterance.onend = onDone;
@@ -69,11 +79,13 @@ function playThinkingSound() {
     const utterance = new SpeechSynthesisUtterance(
       fillers[Math.floor(Math.random() * fillers.length)]
     );
+    miraVoice = pickMiraVoice();
     if (miraVoice) {
       utterance.voice = miraVoice;
       utterance.lang = miraVoice.lang;
     }
-    utterance.rate = 1.1;
+    utterance.rate = 0.96;
+    utterance.pitch = 1.1;
     window.speechSynthesis.speak(utterance);
   }
 }
