@@ -1072,27 +1072,35 @@ def clear_fails(key):
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 def ask_gemini(client, contents, max_tokens, temperature, system=None):
-    """Call Gemini with thinking turned off. Different Gemini versions accept
-    different settings for that, so try each one until the model accepts it."""
-    attempts = [{"thinking_budget": 0}, {"thinking_level": "minimal"}, None]
+    """Call Gemini, trying settings from most to least specific.
+    Newer Gemini models reject some settings, so if one is refused
+    (400 INVALID_ARGUMENT) we log it and try a simpler request."""
+    attempts = [
+        {"max_output_tokens": max_tokens, "temperature": temperature,
+         "thinking_config": {"thinking_budget": 0}},
+        {"max_output_tokens": max_tokens, "temperature": temperature,
+         "thinking_config": {"thinking_level": "minimal"}},
+        {"max_output_tokens": max_tokens * 4, "temperature": temperature},
+        {},
+    ]
     last_error = None
-    for thinking in attempts:
+    for number, settings in enumerate(attempts, start=1):
         try:
-            cfg = {"max_output_tokens": max_tokens if thinking else max_tokens * 4,
-                   "temperature": temperature}
+            cfg = dict(settings)
+            if "thinking_config" in cfg:
+                cfg["thinking_config"] = types.ThinkingConfig(**cfg["thinking_config"])
             if system:
                 cfg["system_instruction"] = system
-            if thinking:
-                cfg["thinking_config"] = types.ThinkingConfig(**thinking)
             return client.models.generate_content(
                 model=GEMINI_MODEL,
                 contents=contents,
-                config=types.GenerateContentConfig(**cfg),
+                config=types.GenerateContentConfig(**cfg) if cfg else None,
             )
         except Exception as e:
             last_error = e
             if "INVALID_ARGUMENT" in str(e) or isinstance(e, (TypeError, ValueError)):
-                continue  # this model doesn't accept that setting, try the next one
+                print(f"Gemini attempt {number} refused, trying simpler settings:", repr(e)[:200])
+                continue
             raise
     raise last_error or RuntimeError("Gemini request failed")
 
