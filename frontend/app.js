@@ -2964,33 +2964,9 @@ function speakText(
     return onComplete?.();
   }
 
-  window.speechSynthesis.cancel();
-
   const spoken =
     cleanSpeechText(text) ||
     text;
-
-  const utterance =
-    new SpeechSynthesisUtterance(
-      spoken
-    );
-
-  utterance.rate =
-    0.94;
-
-  utterance.pitch =
-    1.1;
-
-  utterance.volume =
-    1;
-
-  const voice =
-    getMiraVoice();
-
-  if (voice) {
-    utterance.voice =
-      voice;
-  }
 
   const avatar =
     document.getElementById(
@@ -3016,14 +2992,10 @@ function speakText(
     onComplete?.();
   };
 
-  utterance.onend =
-    finish;
-
-  utterance.onerror =
-    finish;
-
-  window.speechSynthesis.speak(
-    utterance
+  // Shared with mira-voice.js so chat and calls use the same expressive voice.
+  speakAsMira(
+    spoken,
+    finish
   );
 }
 
