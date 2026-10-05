@@ -40,6 +40,11 @@ const state = {
 
   wakeLock: null,
 
+  // True while startAlert/stopAlert are mid-flight, so repeated triggers
+  // don't fire duplicate requests.
+  alertStarting: false,
+  alertStopping: false,
+
   // Safe-word triggers
   startTrigger: "did you feed the cat",
   stopTrigger: "okay talk later",
@@ -532,7 +537,9 @@ function buildTrackUrl(shareToken) {
 }
 
 async function startAlert() {
-  if (state.isAlertActive) return;
+  if (state.isAlertActive || state.alertStarting) return;
+
+  state.alertStarting = true;
 
   try {
     showToast(
@@ -603,12 +610,24 @@ async function startAlert() {
       `Failed to start alert: ${err.message}`,
       "error"
     );
+  } finally {
+    state.alertStarting = false;
   }
 }
 
 async function stopAlert() {
-  if (!state.isAlertActive) return;
+  if (!state.isAlertActive || state.alertStopping) return;
 
+  state.alertStopping = true;
+
+  try {
+    await stopAlertNow();
+  } finally {
+    state.alertStopping = false;
+  }
+}
+
+async function stopAlertNow() {
   // Tell backend to stop the emergency alert.
   try {
     await api(
@@ -2131,6 +2150,9 @@ function toggleVoiceGuardian() {
 const SAFE_WORD_FIXES = {
   u: "you", ya: "you", r: "are", ur: "your",
   gonna: "going to", wanna: "want to", ok: "okay", k: "okay",
+  okey: "okay", okie: "okay", okk: "okay", okayy: "okay",
+  // common mishearings of "later" in "okay talk later"
+  letter: "later", ladder: "later", latter: "later",
   "0": "zero", "1": "one", "2": "two", "3": "three", "4": "four",
   "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine", "10": "ten",
 };
@@ -2138,6 +2160,7 @@ const SAFE_WORD_FIXES = {
 function normalizeSpeech(text) {
   return (text || "")
     .toLowerCase()
+    .replace(/\bo\s*\.?\s*k\b\.?/g, "okay") // "O.K." / "o k"
     .replace(/[’']/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
@@ -2165,6 +2188,20 @@ function speechWordsMatch(a, b) {
   return false;
 }
 
+function safeWordInOrder(tw, pw) {
+  const MAX_GAP = 2;
+  for (let start = 0; start < tw.length; start++) {
+    if (!speechWordsMatch(tw[start], pw[0])) continue;
+    let k = 1, gap = 0;
+    for (let i = start + 1; i < tw.length && k < pw.length; i++) {
+      if (speechWordsMatch(tw[i], pw[k])) { k++; gap = 0; }
+      else if (++gap > MAX_GAP) break;
+    }
+    if (k === pw.length) return true;
+  }
+  return false;
+}
+
 function safeWordHeard(transcript, phrase) {
   const t = normalizeSpeech(transcript);
   const p = normalizeSpeech(phrase);
@@ -2176,9 +2213,14 @@ function safeWordHeard(transcript, phrase) {
   // 2. Same words but split/joined differently ("pine apple" vs "pineapple")
   if (t.replace(/ /g, "").includes(p.replace(/ /g, ""))) return true;
 
-  // 3. Long phrases: allow one word to be missed or misheard
   const pw = p.split(" ");
   const tw = t.split(" ");
+
+  // 3. Every word said in order, with up to 2 extra words slipped in
+  //    between ("okay talk to you later", "okay, I'll talk later")
+  if (safeWordInOrder(tw, pw)) return true;
+
+  // 4. Long phrases: allow one word to be missed or misheard
   if (pw.length < 4) return false;
   for (let start = 0; start < tw.length; start++) {
     const win = tw.slice(start, start + pw.length + 2);
@@ -2190,6 +2232,45 @@ function safeWordHeard(transcript, phrase) {
     if (hits >= pw.length - 1) return true;
   }
   return false;
+}
+
+let guardianCooldownUntil = 0;
+let guardianRestartTimer = null;
+
+// Throw away the current listening session so the phrase we just acted on
+// can't fire again; onend starts a fresh one.
+function resetGuardianSession(recognizer) {
+  guardianCooldownUntil = Date.now() + 1500;
+  try {
+    recognizer.abort();
+  } catch (_) { }
+}
+
+function restartGuardian(recognizer, attempt = 0) {
+  clearTimeout(guardianRestartTimer);
+  guardianRestartTimer = setTimeout(() => {
+    if (
+      !state.isGuardianActive ||
+      state.speechRecognizer !== recognizer
+    ) return;
+
+    try {
+      recognizer.start();
+    } catch (err) {
+      // Usually "already started" or the mic is briefly busy.
+      if (attempt < 10) restartGuardian(recognizer, attempt + 1);
+      else console.warn("Voice Guardian could not restart:", err);
+    }
+  }, attempt === 0 ? 250 : 1000);
+}
+
+// If "stop" is heard while the alert is still starting up, wait for it to
+// finish starting, then stop it.
+async function stopWhenAlertReady() {
+  for (let i = 0; i < 40 && state.alertStarting; i++) {
+    await new Promise(r => setTimeout(r, 250));
+  }
+  await stopAlert();
 }
 
 function startListeningEngine() {
@@ -2226,14 +2307,24 @@ function startListeningEngine() {
           transcript
         );
 
+        // Ignore words still echoing from the phrase we just acted on.
+        if (Date.now() < guardianCooldownUntil) return;
+
         const startPhrase =
           state.startTrigger.toLowerCase();
 
         const stopPhrase =
           state.stopTrigger.toLowerCase();
 
+        // Only listen for the phrase that makes sense right now. Chrome keeps
+        // re-sending the whole sentence, so checking the start phrase first
+        // used to swallow "okay talk later" once an alert was running.
+        const alertOn =
+          state.isAlertActive || state.alertStarting;
+
         if (
-                    safeWordHeard(transcript, startPhrase)
+          !alertOn &&
+          safeWordHeard(transcript, startPhrase)
         ) {
 
           console.warn(
@@ -2246,10 +2337,14 @@ function startListeningEngine() {
             "error"
           );
 
+          resetGuardianSession(recognizer);
           startAlert();
+          return;
 
         } else if (
-                    safeWordHeard(transcript, stopPhrase)
+          alertOn &&
+          !state.alertStopping &&
+          safeWordHeard(transcript, stopPhrase)
         ) {
 
           console.log(
@@ -2262,7 +2357,9 @@ function startListeningEngine() {
             "success"
           );
 
-          stopAlert();
+          resetGuardianSession(recognizer);
+          stopWhenAlertReady();
+          return;
         }
       }
     };
@@ -2273,16 +2370,29 @@ function startListeningEngine() {
         "Speech recognition error:",
         e.error
       );
+
+      if (
+        e.error === "not-allowed" ||
+        e.error === "service-not-allowed"
+      ) {
+        showToast(
+          "Voice Guardian needs microphone permission.",
+          "error"
+        );
+        if (state.isGuardianActive) toggleVoiceGuardian();
+      }
     };
 
   recognizer.onend =
     () => {
 
-      if (state.isGuardianActive) {
-
-        try {
-          recognizer.start();
-        } catch (_) { }
+      // Chrome ends sessions on silence, and phones cut them off when
+      // alert audio recording grabs the mic, so keep coming back.
+      if (
+        state.isGuardianActive &&
+        state.speechRecognizer === recognizer
+      ) {
+        restartGuardian(recognizer);
       }
     };
 
@@ -2304,12 +2414,17 @@ function startListeningEngine() {
 
 function stopListeningEngine() {
 
+  clearTimeout(guardianRestartTimer);
+
   if (state.speechRecognizer) {
 
-    state.speechRecognizer.abort();
+    const recognizer =
+      state.speechRecognizer;
 
     state.speechRecognizer =
       null;
+
+    recognizer.abort();
   }
 }
 

@@ -1147,6 +1147,43 @@ class TriggerSettingsIn(BaseModel):
     start_trigger: str
     stop_trigger: str
 
+PHRASE_FIXES = {
+    "u": "you", "ya": "you", "r": "are", "ur": "your",
+    "ok": "okay", "k": "okay", "okey": "okay", "okie": "okay", "okk": "okay",
+    "letter": "later", "ladder": "later", "latter": "later",
+}
+
+def normalize_phrase(text):
+    """Lowercase, drop punctuation and smooth over common speech-to-text spellings."""
+    text = re.sub(r"\bo\s*\.?\s*k\b\.?", "okay", (text or "").lower())
+    text = re.sub(r"['’]", "", text)
+    words = re.sub(r"[^a-z0-9\s]", " ", text).split()
+    return [PHRASE_FIXES.get(w, w) for w in words]
+
+def phrase_heard(text, phrase, max_gap=2):
+    """True if the phrase's words appear in order, allowing a couple of extra
+    words in between ("okay, talk to you later" matches "okay talk later")."""
+    said = normalize_phrase(text)
+    want = normalize_phrase(phrase)
+    if not want:
+        return False
+    for start, word in enumerate(said):
+        if word != want[0]:
+            continue
+        k, gap = 1, 0
+        for w in said[start + 1:]:
+            if k == len(want):
+                break
+            if w == want[k]:
+                k, gap = k + 1, 0
+            else:
+                gap += 1
+                if gap > max_gap:
+                    break
+        if k == len(want):
+            return True
+    return False
+
 def clean_spoken_reply(text):
     """Strip anything that sounds robotic when read aloud."""
     text = re.sub(r"[*_#`>~]", "", text)                               # markdown symbols
@@ -1202,8 +1239,8 @@ def chat(data: ChatIn, username: str = Depends(get_current_user)):
     user_start = trig_row[0] if trig_row else START_TRIGGER
     user_stop = trig_row[1] if trig_row else STOP_TRIGGER
 
-    trigger_start = user_start in text.lower()
-    trigger_stop = user_stop in text.lower()
+    trigger_start = phrase_heard(text, user_start)
+    trigger_stop = phrase_heard(text, user_stop)
     try:
         client = genai.Client(api_key=api_key)
         res = ask_gemini(client, history, max_tokens=120, temperature=1.0, system=BUDDY_PROMPT)
