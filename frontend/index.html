@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mira — Personal Safety & Live Emergency Beacon</title>
+  <meta name="description"
+    content="Personal safety web app featuring live emergency beacon tracking, continuous voice safe-word detection, and Mira companion.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <div id="app-shell">
+
+    <!-- Top Navigation Bar -->
+    <header class="top-bar">
+      <div class="brand-group">
+        <div class="brand-icon">🛡️</div>
+        <span class="brand-title">Mira</span>
+      </div>
+
+      <div class="header-actions">
+        <!-- Voice Guardian Status Pill -->
+        <div id="voice-guardian-badge" class="voice-badge" title="Click to toggle Voice Guardian">
+          <span class="voice-dot"></span>
+          <span id="voice-guardian-label">Voice: OFF</span>
+        </div>
+
+        <!-- Direct Emergency 112 Dial -->
+        <a href="tel:112" class="call-112-btn" id="header-call-112" title="Call Emergency Services">
+          <span>📞</span> 112
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Viewport for Screens -->
+    <main class="main-viewport">
+
+      <!-- ===================================================================
+           SCREEN 0: AUTHENTICATION (Login / Register)
+           =================================================================== -->
+      <section id="screen-auth" class="screen active">
+        <div class="auth-wrapper">
+          <div class="auth-header">
+            <h1>Welcome to Mira</h1>
+            <p>Your discreet personal safety companion & live beacon</p>
+          </div>
+
+          <div class="auth-card">
+            <!-- Tabs -->
+            <div class="tab-nav">
+              <button type="button" class="tab-btn active" id="tab-login" onclick="switchAuthTab('login')">Log
+                In</button>
+              <button type="button" class="tab-btn" id="tab-register"
+                onclick="switchAuthTab('register')">Register</button>
+            </div>
+
+            <!-- Auth Form -->
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+              <div class="form-group">
+                <label for="auth-username">Username</label>
+                <input type="text" id="auth-username" class="input-field" placeholder="e.g. mira" required
+                  autocapitalize="none">
+              </div>
+
+              <div class="form-group">
+                <label for="auth-password">Password</label>
+                <input type="password" id="auth-password" class="input-field" placeholder="••••••••" required>
+              </div>
+
+              <button type="submit" class="btn-primary" id="auth-submit-btn">
+                <span id="auth-btn-text">Log In</span>
+              </button>
+            </form>
+
+            <div style="text-align: center; margin-top: 14px;">
+              <a href="#" onclick="toggleForgotPass(event)"
+                style="font-size: 11.5px; color: var(--text-secondary); text-decoration: none;">
+                Forgot password? Use recovery code
+              </a>
+            </div>
+
+            <!-- Forgot Password Panel -->
+            <div id="forgot-panel"
+              style="display: none; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-subtle);">
+              <div class="form-group">
+                <label>Recovery Code</label>
+                <input type="text" id="reset-code" class="input-field" placeholder="16-character code">
+              </div>
+              <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="reset-new-pass" class="input-field" placeholder="••••••••">
+              </div>
+              <button type="button" class="btn-secondary" style="width: 100%;" onclick="handleResetPassword()">Reset
+                Password</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 1: SOS DASHBOARD (HOME)
+           =================================================================== -->
+      <section id="screen-home" class="screen">
+        <div class="sos-container">
+
+          <!-- Alert State Banner -->
+          <div id="status-banner" class="status-pill-banner">
+            <div class="status-indicator">
+              <div class="status-dot-pulse"></div>
+              <div class="status-text">
+                <h4 id="status-title">System Guard Active</h4>
+                <p id="status-subtitle">Ready to activate beacon anytime</p>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+              <span id="alert-timer"
+                style="font-size: 12px; font-weight: 700; font-family: monospace; display: none;">00:00</span>
+
+              <span id="audio-chunk-timer"
+                style="font-size: 10px; font-weight: 600; font-family: monospace; color: var(--text-secondary); display: none;">
+                Audio clip: 10s
+              </span>
+            </div>
+          </div>
+
+          <!-- Central SOS Trigger Button -->
+          <div class="sos-button-wrapper">
+            <div class="sos-ring"></div>
+            <button id="sos-main-btn" class="sos-btn" onclick="toggleAlert()" title="Tap to Start Emergency Alert">
+              <span class="sos-icon" id="sos-btn-icon">🚨</span>
+              <span class="sos-label" id="sos-btn-label">START ALERT</span>
+              <span class="sos-sublabel" id="sos-btn-sub">Tap in danger</span>
+            </button>
+          </div>
+
+          <!-- Live Tracking Link Banner (Shown when alert is running) -->
+          <div id="active-link-card" class="active-link-card">
+            <div class="active-link-header">
+              <span>🔴 Live Tracking Active</span>
+              <span style="font-size: 11px; color: var(--text-secondary);" id="gps-status-pill">GPS: Syncing...</span>
+            </div>
+
+            <p style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px;">
+              Email alerts sent to your contacts. They can follow you live without an account:
+            </p>
+
+            <div class="copy-link-box">
+              <input type="text" id="share-link-input" class="link-input-display" readonly value="">
+              <button type="button" class="btn-secondary" onclick="copyShareLink()">Copy</button>
+              <button type="button" class="btn-secondary" onclick="openTrackingPage()">Open</button>
+            </div>
+
+            <!-- Direct Mobile Delivery Options -->
+            <div class="share-action-row">
+              <button type="button" class="btn-whatsapp" onclick="shareViaWhatsApp()">
+                <span>💬</span> WhatsApp
+              </button>
+
+              <button type="button" class="btn-sms" onclick="shareViaSMS()">
+                <span>✉️</span> SMS
+              </button>
+
+              <button type="button" class="btn-secondary" style="padding: 8px 10px;" onclick="shareViaPhoneNative()">
+                <span>📲</span> Share
+              </button>
+            </div>
+
+            <button type="button" class="btn-secondary" style="width: 100%; margin-top: 10px;"
+              onclick="navigateTo('recordings')">
+              🎙️ View Live Audio Recordings
+            </button>
+          </div>
+
+          <!-- Dashboard Quick Navigation Cards -->
+          <div class="dashboard-grid">
+
+            <div class="dash-card" onclick="navigateTo('chat')">
+              <div class="dash-card-icon">💬</div>
+              <h4>Call Mira</h4>
+              <p>Simulate a friend on the phone to stay safe</p>
+            </div>
+
+            <div class="dash-card" onclick="navigateTo('contacts')">
+              <div class="dash-card-icon">👥</div>
+              <h4>Emergency Contacts</h4>
+              <p><span id="contact-count-badge">0</span> contacts receive alerts</p>
+            </div>
+
+            <div class="dash-card" onclick="navigateTo('nearby')">
+              <div class="dash-card-icon">🛡️</div>
+              <h4>Safety Scan & Help</h4>
+              <p>AI Area Scan, Safe Routes & Help</p>
+            </div>
+
+            <div class="dash-card" onclick="navigateTo('settings')">
+              <div class="dash-card-icon">🎙️</div>
+              <h4>Safe-Words</h4>
+              <p>Customize secret voice triggers</p>
+            </div>
+
+            <!-- Permanent Audio Evidence Card -->
+            <div class="dash-card" id="recordings-evidence-card" onclick="navigateTo('recordings')">
+              <div class="dash-card-icon">🎧</div>
+              <h4>Audio Evidence</h4>
+              <p>View saved 10-second alert recordings</p>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 2: PRIYA AI SAFETY CHATBOT
+           =================================================================== -->
+      <section id="screen-chat" class="screen">
+        <div class="chat-container">
+
+          <!-- Voice Call Mode Bar -->
+          <div class="call-mode-banner">
+            <span
+              style="font-size: 12px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+              <span>🤖</span> Mira Companion
+            </span>
+
+            <button type="button" class="call-mode-btn" id="btn-toggle-call-mode" onclick="toggleMiraVoiceCall()">
+              <span id="call-btn-icon">📞</span>
+              <span id="call-btn-text">Start Phone Call</span>
+            </button>
+          </div>
+
+          <!-- Active Phone Call Overlay -->
+          <div id="voice-call-overlay" class="voice-call-overlay">
+            <div class="call-avatar-pulse" id="call-avatar">
+              👩
+            </div>
+
+            <div class="call-status-text" id="call-status-title">On Call with Mira</div>
+
+            <div class="call-sub-text" id="call-status-sub">
+              Mira speaks aloud • Speak through your microphone
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button type="button" class="btn-secondary" style="padding: 8px 16px; border-radius: 9999px;"
+                onclick="muteCallMic()" id="btn-call-mute">
+                🎤 Mic ON
+              </button>
+
+              <button type="button" class="call-112-btn" style="padding: 8px 18px;" onclick="toggleMiraVoiceCall()">
+                ✕ End Call
+              </button>
+            </div>
+          </div>
+
+          <!-- Disclaimer -->
+          <div class="chat-disclaimer">
+            <span>🛡️ Mira is your AI safety companion for walking alone. In immediate danger, call 112.</span>
+
+            <button type="button" onclick="clearChatHistory()"
+              style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px;">
+              Clear
+            </button>
+          </div>
+
+          <!-- Emergency Banner inside Chat -->
+          <div id="chat-emergency-banner" class="chat-emergency-banner">
+            <span>🚨 Danger words detected!</span>
+
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn-secondary" style="padding: 4px 8px; font-size: 11px;"
+                onclick="toggleAlert()">
+                Start Alert
+              </button>
+
+              <a href="tel:112" class="call-112-btn" style="padding: 4px 8px; font-size: 11px;">
+                112
+              </a>
+            </div>
+          </div>
+
+          <!-- Messages Thread -->
+          <div id="chat-messages" class="chat-messages">
+            <!-- Messages inserted dynamically -->
+          </div>
+
+          <!-- Chat Input Bar -->
+          <form id="chat-form" class="chat-input-bar" onsubmit="sendChatMessage(event)">
+            <button type="button" class="icon-btn" id="chat-mic-btn" onclick="toggleChatSpeechInput()"
+              title="Speak message">
+              🎤
+            </button>
+
+            <input type="text" id="chat-input" placeholder="Talk to Mira..." autocomplete="off" maxlength="500">
+
+            <button type="submit" class="icon-btn send-btn" title="Send message">
+              ➤
+            </button>
+          </form>
+
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 3: EMERGENCY CONTACTS
+           =================================================================== -->
+      <section id="screen-contacts" class="screen">
+
+        <div class="section-header">
+          <h2>Emergency Contacts</h2>
+          <button type="button" class="btn-secondary" onclick="toggleAddContactForm()">+ Add New</button>
+        </div>
+
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;">
+          When you trigger an alert, these contacts instantly receive an email containing your private live-tracking map
+          link.
+        </p>
+
+        <!-- Add Contact Panel -->
+        <div id="add-contact-panel" class="settings-section" style="display: none; margin-bottom: 16px;">
+          <h3>Add Emergency Contact</h3>
+
+          <form id="add-contact-form" onsubmit="handleAddContact(event)">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" id="new-contact-name" class="input-field" placeholder="e.g. Mom or Rahul" required>
+            </div>
+
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" id="new-contact-phone" class="input-field" placeholder="e.g. +91 9876543210" required>
+            </div>
+
+            <div class="form-group">
+              <label>Email Address (Required for alerts)</label>
+              <input type="email" id="new-contact-email" class="input-field" placeholder="e.g. contact@example.com"
+                required>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button type="submit" class="btn-primary">Save Contact</button>
+              <button type="button" class="btn-secondary" onclick="toggleAddContactForm()">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Contacts List Container -->
+        <div id="contacts-list">
+          <!-- Loaded dynamically -->
+        </div>
+
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 4: NEARBY EMERGENCY SERVICES
+           =================================================================== -->
+      <section id="screen-nearby" class="screen">
+
+        <div class="section-header">
+          <h2>Nearby Emergency Help</h2>
+        </div>
+
+        <!-- AI Area Safety Summary -->
+        <div id="area-safety-summary-box" class="area-safety-box">
+
+          <div class="area-safety-header">
+            <div>
+              <h3 id="area-safety-title">🛡️ Area Safety Scan</h3>
+              <p id="area-safety-status">Waiting for your location...</p>
+            </div>
+
+            <button type="button" class="btn-secondary" id="btn-rescan-safety" onclick="refreshAreaSafety()">
+              ↻ Rescan
+            </button>
+          </div>
+
+          <p id="area-safety-summary-text" class="area-safety-summary">
+            Scan your current area for nearby roads, lighting, police, hospitals and active places.
+          </p>
+
+          <div class="area-safety-metrics">
+
+            <div class="safety-metric">
+              <span>💡 Lit Roads</span>
+              <strong id="metric-lit-roads">—</strong>
+            </div>
+
+            <div class="safety-metric">
+              <span>🛣️ Main Roads</span>
+              <strong id="metric-main-roads">—</strong>
+            </div>
+
+            <div class="safety-metric">
+              <span>🚓 Police</span>
+              <strong id="metric-police-dist">—</strong>
+            </div>
+
+            <div class="safety-metric">
+              <span>🏥 Hospital</span>
+              <strong id="metric-hospital-dist">—</strong>
+            </div>
+
+          </div>
+
+          <div class="safe-route-box">
+            <div class="safe-route-title">🧭 Suggested Safer Route</div>
+
+            <p class="safe-route-text" id="safe-route-advice">
+              Stick to well-lit main avenues with open businesses. Avoid dark shortcut side-streets.
+            </p>
+
+            <div class="safe-route-actions" id="safe-haven-actions">
+              <!-- Dynamically populated buttons -->
+            </div>
+          </div>
+
+        </div>
+
+        <div class="nearby-tabs">
+          <button class="nearby-tab active" id="nearby-tab-hospital" onclick="loadNearby('hospital')">🏥
+            Hospitals</button>
+
+          <button class="nearby-tab" id="nearby-tab-police" onclick="loadNearby('police')">
+            🚓 Police
+          </button>
+
+          <button class="nearby-tab" id="nearby-tab-pharmacy" onclick="loadNearby('pharmacy')">
+            💊 Pharmacies
+          </button>
+        </div>
+
+        <!-- Interactive Map Container for Nearby Help -->
+        <div id="nearby-map"></div>
+
+        <!-- Direct Emergency Shortcuts & Helplines -->
+        <div class="nearby-shortcuts">
+
+          <a id="btn-gmaps-direct" href="https://www.google.com/maps/search/hospitals+near+me" target="_blank"
+            rel="noopener" class="shortcut-btn">
+            <span>🗺️</span> Open in Google Maps
+          </a>
+
+          <a href="tel:112" class="shortcut-btn" style="color: var(--accent-emergency);">
+            <span>📞</span> Call Police (112)
+          </a>
+
+          <a href="tel:102" class="shortcut-btn" style="color: #60a5fa;">
+            <span>🚑</span> Ambulance (102)
+          </a>
+
+          <a href="tel:1091" class="shortcut-btn" style="color: #f472b6;">
+            <span>🛡️</span> Women Helpline (1091)
+          </a>
+
+        </div>
+
+        <div id="nearby-loading"
+          style="display: none; text-align: center; padding: 16px; color: var(--text-secondary); font-size: 13px;">
+          📍 Locating nearby facilities via GPS...
+        </div>
+
+        <div id="nearby-list">
+          <!-- Populated dynamically -->
+        </div>
+
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 5: AUDIO RECORDINGS
+           =================================================================== -->
+      <section id="screen-recordings" class="screen">
+
+        <div class="section-header">
+          <h2>Alert Audio Clips</h2>
+        </div>
+
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;">
+          Rolling 10-second ambient audio evidence clips are uploaded automatically while an alert is active. If you
+          stop an alert mid-clip, the final saved clip may be shorter and its actual duration is shown.
+        </p>
+
+        <div id="recordings-list">
+          <!-- Populated dynamically -->
+        </div>
+
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 6: SETTINGS & SAFE-WORDS
+           =================================================================== -->
+      <section id="screen-settings" class="screen">
+
+        <div class="section-header">
+          <h2>Settings & Voice Guardian</h2>
+        </div>
+
+        <!-- Voice Guardian Safe-Word Triggers -->
+        <div class="settings-section">
+
+          <h3>🎙️ Custom Safe-Words</h3>
+
+          <p class="sub">
+            The app can secretly trigger or cancel alerts when it hears these words (either in Mira's chat or spoken
+            aloud when Voice Guardian is ON).
+          </p>
+
+          <form id="triggers-form" onsubmit="handleSaveTriggers(event)">
+
+            <div class="form-group">
+              <label>Emergency Start Trigger (Secret Phrase)</label>
+              <input type="text" id="setting-start-trigger" class="input-field" placeholder="e.g. did you feed the cat"
+                required>
+            </div>
+
+            <div class="form-group">
+              <label>Emergency Stop Trigger</label>
+              <input type="text" id="setting-stop-trigger" class="input-field" placeholder="e.g. okay talk later"
+                required>
+            </div>
+
+            <button type="submit" class="btn-primary">Save Safe-Words</button>
+
+          </form>
+        </div>
+
+        <!-- Voice Guardian Continuous Listener Toggle -->
+        <div class="settings-section">
+
+          <h3>🛡️ Voice Guardian</h3>
+
+          <p class="sub">
+            When enabled, your phone will listen in the background for your secret phrase, even when you're not in the
+            chat screen.
+          </p>
+
+          <button type="button" class="btn-secondary" id="btn-toggle-guardian" onclick="toggleVoiceGuardian()"
+            style="width: 100%;">
+            Turn ON Voice Guardian
+          </button>
+
+        </div>
+
+        <!-- Account Security -->
+        <div class="settings-section">
+
+          <h3>🔑 Account Security</h3>
+
+          <p class="sub">
+            Logged in as:
+            <strong id="current-user-display" style="color: var(--text-primary);">mira</strong>
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+
+            <button type="button" class="btn-secondary" onclick="showRecoveryCode()">
+              View Emergency Recovery Code
+            </button>
+
+            <button type="button" class="btn-secondary" onclick="handleLogout()" style="color: #fda4af;">
+              Log Out
+            </button>
+
+          </div>
+
+          <div id="recovery-code-display"
+            style="display: none; margin-top: 12px; padding: 10px; background: var(--bg-input); border-radius: var(--radius-sm); font-family: monospace; font-size: 12px;">
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav" id="bottom-nav" style="display: none;">
+
+      <button class="nav-item active" id="nav-home" onclick="navigateTo('home')">
+        <span class="nav-icon">🚨</span>
+        <span>SOS</span>
+      </button>
+
+      <button class="nav-item" id="nav-chat" onclick="navigateTo('chat')">
+        <span class="nav-icon">💬</span>
+        <span>Mira</span>
+      </button>
+
+      <button class="nav-item" id="nav-contacts" onclick="navigateTo('contacts')">
+        <span class="nav-icon">👥</span>
+        <span>Contacts</span>
+      </button>
+
+      <button class="nav-item" id="nav-nearby" onclick="navigateTo('nearby')">
+        <span class="nav-icon">🏥</span>
+        <span>Nearby</span>
+      </button>
+
+      <button class="nav-item" id="nav-recordings" onclick="navigateTo('recordings')">
+        <span class="nav-icon">🎧</span>
+        <span>Audio</span>
+      </button>
+
+      <button class="nav-item" id="nav-settings" onclick="navigateTo('settings')">
+        <span class="nav-icon">⚙️</span>
+        <span>Settings</span>
+      </button>
+
+    </nav>
+
+  </div>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script src="mira-voice.js"></script>
+  <script src="alert-watch.js"></script>
+  <script src="walk.js"></script>
+  <script src="sms-fallback.js"></script>
+  <script src="app.js"></script>
+
+</body>
+
+</html>
