@@ -856,15 +856,7 @@ def area_safety(
                 "language for a pedestrian. Do not invent details not given. Avoid "
                 "alarming language; be calm and factual."
             )
-            res = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    max_output_tokens=300,
-                    temperature=0.4,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                ),
-            )
+            res = ask_gemini(client, prompt, max_tokens=300, temperature=0.4)
             summary = (res.text or "").strip() or None
         except Exception as e:
             print("Area safety AI error:", repr(e))
@@ -1079,6 +1071,31 @@ def clear_fails(key):
 
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
+def ask_gemini(client, contents, max_tokens, temperature, system=None):
+    """Call Gemini with thinking turned off. Different Gemini versions accept
+    different settings for that, so try each one until the model accepts it."""
+    attempts = [{"thinking_budget": 0}, {"thinking_level": "minimal"}, None]
+    last_error = None
+    for thinking in attempts:
+        try:
+            cfg = {"max_output_tokens": max_tokens if thinking else max_tokens * 4,
+                   "temperature": temperature}
+            if system:
+                cfg["system_instruction"] = system
+            if thinking:
+                cfg["thinking_config"] = types.ThinkingConfig(**thinking)
+            return client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(**cfg),
+            )
+        except Exception as e:
+            last_error = e
+            if "INVALID_ARGUMENT" in str(e) or isinstance(e, (TypeError, ValueError)):
+                continue  # this model doesn't accept that setting, try the next one
+            raise
+    raise last_error or RuntimeError("Gemini request failed")
+
 BUDDY_PROMPT = (
     "You are Mira, the user's close friend from college. You are on a normal phone call "
     "with them while they walk somewhere. You live in Kolkata and talk like a real "
@@ -1181,16 +1198,7 @@ def chat(data: ChatIn, username: str = Depends(get_current_user)):
     trigger_stop = user_stop in text.lower()
     try:
         client = genai.Client(api_key=api_key)
-        res = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=history,
-            config=types.GenerateContentConfig(
-                system_instruction=BUDDY_PROMPT,
-                max_output_tokens=120,
-                temperature=1.0,
-                thinking_config=types.ThinkingConfig(thinking_budget=0)
-            ),
-        )
+        res = ask_gemini(client, history, max_tokens=120, temperature=1.0, system=BUDDY_PROMPT)
         reply = clean_spoken_reply(res.text or "")
     except Exception as e:
         print("Chat error:", repr(e))
