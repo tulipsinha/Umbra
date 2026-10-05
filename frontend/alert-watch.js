@@ -13,7 +13,7 @@ function startAlertWatch(getToken) {
 
       const base = typeof API_BASE !== "undefined"
         ? API_BASE
-        : "https://safety-app-o8sp.onrender.com";
+        : "https://umbra-api-1o94.onrender.com";
 
       const response = await fetch(`${base}/alert/status`, {
         headers: {

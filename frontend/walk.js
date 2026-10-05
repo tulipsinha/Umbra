@@ -12,7 +12,7 @@ function startWalkPolling(getToken, onUpdate) {
 
   const base = typeof API_BASE !== "undefined"
     ? API_BASE
-    : "https://safety-app-o8sp.onrender.com";
+    : "https://umbra-api-1o94.onrender.com";
 
   const poll = async () => {
     try {
@@ -71,7 +71,7 @@ async function startWalk(getToken, destination, minutes, onUpdate) {
 
   const base = typeof API_BASE !== "undefined"
     ? API_BASE
-    : "https://safety-app-o8sp.onrender.com";
+    : "https://umbra-api-1o94.onrender.com";
 
   const token = getToken();
   const response = await fetch(`${base}/walk/start`, {
@@ -110,7 +110,7 @@ async function walkArrived(getToken) {
   const token = getToken();
   const base = typeof API_BASE !== "undefined"
     ? API_BASE
-    : "https://safety-app-o8sp.onrender.com";
+    : "https://umbra-api-1o94.onrender.com";
 
   const response = await fetch(`${base}/walk/arrived`, {
     method: "POST",
@@ -142,7 +142,7 @@ async function walkExtend(getToken, minutes) {
   const token = getToken();
   const base = typeof API_BASE !== "undefined"
     ? API_BASE
-    : "https://safety-app-o8sp.onrender.com";
+    : "https://umbra-api-1o94.onrender.com";
 
   const response = await fetch(`${base}/walk/extend`, {
     method: "POST",

@@ -3,7 +3,7 @@
  * Clean Vanilla JS Architecture connected to FastAPI backend
  */
 
-const API_BASE = "https://safety-app-o8sp.onrender.com";
+const API_BASE = "https://umbra-api-1o94.onrender.com";
 
 // ============================================================================
 // APPLICATION STATE
