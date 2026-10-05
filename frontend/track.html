@@ -7,7 +7,7 @@
   <meta name="description" content="Live emergency beacon tracking view for emergency contacts. Follows live location in real-time.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Leaflet Map CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -50,6 +50,12 @@
       gap: 8px;
       font-weight: 700;
       font-size: 15px;
+    }
+
+    .brand img {
+      width: 32px;
+      height: 32px;
+      filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.24));
     }
 
     .status-badge {
@@ -174,7 +180,7 @@
 
   <header>
     <div class="brand">
-      <span>🛡️</span>
+      <img src="umbra-shield.svg" alt="" aria-hidden="true">
       <span>Umbra Live Tracker</span>
     </div>
     <div id="status-pill" class="status-badge">

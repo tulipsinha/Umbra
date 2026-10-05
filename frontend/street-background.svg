@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="800" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#263844"/>
+      <stop offset=".53" stop-color="#657078"/>
+      <stop offset="1" stop-color="#1a252c"/>
+    </linearGradient>
+    <linearGradient id="road" x1="800" y1="420" x2="800" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#52606a"/>
+      <stop offset="1" stop-color="#131a20"/>
+    </linearGradient>
+    <linearGradient id="sidewalk" x1="500" y1="430" x2="170" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#859098" stop-opacity=".68"/>
+      <stop offset="1" stop-color="#202b32"/>
+    </linearGradient>
+    <radialGradient id="horizon" cx="0" cy="0" r="1" gradientTransform="matrix(0 370 -670 0 800 438)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f7c98e" stop-opacity=".64"/>
+      <stop offset=".3" stop-color="#cfaa83" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#d5b28c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lamp-glow" cx="0" cy="0" r="1" gradientTransform="matrix(0 110 -95 0 0 0)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffd49b" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#ffd49b" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="small-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+
+  <path fill="url(#sky)" d="M0 0h1600v1000H0z"/>
+  <path fill="url(#horizon)" d="M0 0h1600v1000H0z"/>
+
+  <g fill="#243139" opacity=".68">
+    <path d="M0 316h119v185H0zM104 279h135v222H104zM230 344h110v157H230zM333 300h148v201H333z"/>
+    <path d="M1600 312h-127v189h127zM1496 270h-140v231h140zM1366 341h-116v160h116zM1263 294h-145v207h145z"/>
+  </g>
+  <g fill="#d0ad7e" opacity=".31">
+    <path d="M138 330h9v13h-9zM177 330h9v13h-9zM138 370h9v13h-9zM177 370h9v13h-9z"/>
+    <path d="M1415 321h9v13h-9zM1454 321h9v13h-9zM1415 361h9v13h-9zM1454 361h9v13h-9z"/>
+    <path d="M383 344h8v12h-8zM422 344h8v12h-8zM1280 341h8v12h-8zM1319 341h8v12h-8z"/>
+  </g>
+
+  <path fill="url(#sidewalk)" d="M0 439 642 451 260 1000H0z"/>
+  <path fill="url(#sidewalk)" d="m1600 439-642 12 382 549h260z"/>
+  <path fill="url(#road)" d="m642 451 316 0 382 549H260z"/>
+  <path fill="#d8c3a2" fill-opacity=".38" d="m793 451 14 0-4 112h-6zM786 613h28l-9 147h-10zM769 825h62l-20 175h-20z"/>
+
+  <g stroke="#1b2429" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="11" d="M116 818V342q0-19 19-19h49"/>
+    <path stroke-width="10" d="M326 695V287q0-16 16-16h38"/>
+    <path stroke-width="8" d="M489 582V258q0-12 12-12h26"/>
+    <path stroke-width="6" d="M625 505V239q0-9 9-9h17"/>
+    <path stroke-width="11" d="M1484 818V342q0-19-19-19h-49"/>
+    <path stroke-width="10" d="M1274 695V287q0-16-16-16h-38"/>
+    <path stroke-width="8" d="M1111 582V258q0-12-12-12h-26"/>
+    <path stroke-width="6" d="M975 505V239q0-9-9-9h-17"/>
+  </g>
+
+  <g fill="#f8d39e" filter="url(#soft-glow)">
+    <ellipse cx="184" cy="323" rx="50" ry="42"/>
+    <ellipse cx="364" cy="268" rx="38" ry="32"/>
+    <ellipse cx="527" cy="244" rx="29" ry="25"/>
+    <ellipse cx="651" cy="230" rx="21" ry="18"/>
+    <ellipse cx="1416" cy="323" rx="50" ry="42"/>
+    <ellipse cx="1236" cy="268" rx="38" ry="32"/>
+    <ellipse cx="1073" cy="244" rx="29" ry="25"/>
+    <ellipse cx="949" cy="230" rx="21" ry="18"/>
+  </g>
+  <g fill="#ffe2b4">
+    <path d="M153 317h61v12h-61zM340 263h48v10h-48zM509 240h36v8h-36zM639 227h24v6h-24z"/>
+    <path d="M1386 317h61v12h-61zM1212 263h48v10h-48zM1055 240h36v8h-36zM937 227h24v6h-24z"/>
+  </g>
+
+  <path fill="#1a2329" fill-opacity=".18" d="M0 0h1600v1000H0z"/>
+  <path stroke="#d7c4a4" stroke-opacity=".14" stroke-width="3" d="m0 439 642 12M1600 439l-642 12"/>
+</svg>
